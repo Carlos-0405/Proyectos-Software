@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
+    
+    <style>
+        .sidebar {
+            height: 100vh;
+            background-color: #343a40;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            display: block;
+        }
+        .sidebar a:hover {
+            background-color: #495057;
+        }
+        .main-content {
+            padding: 20px;
+            overflow-x: hidden; /* Evita el scroll horizontal en el contenedor principal */
+        }
+        .dataTables_wrapper {
+            margin-top: 20px;
+            width: 100%;
+        }
+        /* Nuevos estilos para el scroll horizontal */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 1rem;
+            scrollbar-width: thin;
+        }
+        /* Estilo para la barra de desplazamiento */
+        .table-responsive::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Asegura que la tabla ocupe todo el ancho disponible */
+        .card-body {
+            padding: 0;
+        }
+        .table {
+            margin-bottom: 0;
+        }
+        .cursor-pointer {
+        cursor: pointer;
+        }
+        tr.selected {
+            background-color: #b8d4ff !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar">
+                <h3 class="text-white text-center mb-4">Sistema</h3>
+                <a href="dashboard.html"><i class="fas fa-home me-2"></i> Dashboard</a>
+                <a href="index.html"><i class="fas fa-upload me-2"></i> Introducción</a>
+                <a href="process.html" class="active"><i class="fas fa-chart-bar me-2"></i> Proceso</a>
+                <a href="filtrado.html"><i class="fas fa-cog me-2"></i> Filtrado</a>
+                <a href="rutas.html"><i class="fas fa-map-marked-alt me-2"></i> Rutas</a>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Registros del Sistema</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="recargarDatos()">
+                            <i class="fas fa-sync-alt me-2"></i>Actualizar
+                        </button>
+                        <button id="btnFiltrar" class="btn btn-success me-2" onclick="iniciarFiltrado()">
+                            <i class="fas fa-filter me-2"></i>Filtrar
+                        </button>
+                        <button id="btnContinuar" class="btn btn-primary" onclick="continuarFiltrado()" style="display: none;">
+                            <i class="fas fa-arrow-right me-2"></i>Continuar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- DataTable -->
+                <div class="card">
+                    <div class="table-responsive">
+                        <div class="card-body">
+                            <table id="registrosTable" class="table table-striped table-bordered dt-responsive nowrap" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Asesor</th>
+                                        <th>Nombre Usuario</th>
+                                        <th>Dirección</th>
+                                        <th>Barrio/Localidad</th>
+                                        <th>Teléfono</th>
+                                        <th>Fecha Registro</th>
+                                        <th>Zona</th>
+                                        <th>Plan Internet</th>
+                                        <th>IP</th>
+                                        <th>Comentarios</th>
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts necesarios -->
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
+    <script>
+        let dataTable;
+        let seleccionMultiple = false;
+        let filasSeleccionadas = [];
+        
+        $(document).ready(function() {
+            initDataTable();
+        });
+        
+        function initDataTable() {
+            dataTable = $('#registrosTable').DataTable({
+                ajax: 'get_registros.php',
+                responsive: false, // Desactivamos responsive para mantener todas las columnas
+                processing: true,
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                },
+                columns: [
+                    { data: 'id' },
+                    { data: 'asesor' },
+                    { data: 'nombre_usuario', title: 'Nombre Usuario' },
+                    { data: 'direccion', title: 'Dirección' },
+                    { data: 'barrio_localidad', title: 'Barrio/Localidad' },
+                    { data: 'telefono', title: 'Teléfono' },
+                    { 
+                        data: 'fecha_registro',
+                        title: 'Fecha Registro',
+                        render: function(data) {
+                            if(data) {
+                                return new Date(data).toLocaleDateString('es-ES');
+                            }
+                            return '';
+                        }
+                    },
+                    { data: 'zona', title: 'Zona' },
+                    { data: 'plan_internet', title: 'Plan Internet' },
+                    { data: 'ip', title: 'IP' },
+                    { data: 'comentarios', title: 'Comentarios' }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    {
+                        extend: 'collection',
+                        text: '<i class="fas fa-download me-2"></i>Exportar',
+                        buttons: [
+                            'copy',
+                            'excel',
+                            'csv',
+                            'pdf',
+                            'print'
+                        ],
+                        className: 'btn btn-primary'
+                    }
+                ],
+                order: [[6, 'desc']], // Ordenar por fecha de registro descendente
+                pageLength: 25,
+                scrollX: true, // Habilitamos el scroll horizontal
+                scrollCollapse: true, // Mejora el comportamiento del scroll
+                createdRow: function(row, data, dataIndex) {
+                    $(row).addClass('cursor-pointer');
+                }
+            });
+        }
+        
+        function iniciarFiltrado() {
+            seleccionMultiple = !seleccionMultiple;
+            const btnFiltrar = document.getElementById('btnFiltrar');
+            const btnContinuar = document.getElementById('btnContinuar');
+            
+            if (seleccionMultiple) {
+                btnFiltrar.classList.replace('btn-success', 'btn-danger');
+                btnFiltrar.innerHTML = '<i class="fas fa-times me-2"></i>Cancelar';
+                btnContinuar.style.display = 'inline-block';
+                
+                // Habilitar selección múltiple en la tabla
+                $('#registrosTable tbody').on('click', 'tr', function() {
+                    $(this).toggleClass('selected');
+                    const data = dataTable.row(this).data();
+                    if (data) {
+                        const index = filasSeleccionadas.findIndex(item => item.id === data.id);
+                        if (index === -1) {
+                            filasSeleccionadas.push(data);
+                        } else {
+                            filasSeleccionadas.splice(index, 1);
+                        }
+                    }
+                });
+            } else {
+                cancelarFiltrado();
+            }
+        }
+        
+        function cancelarFiltrado() {
+            const btnFiltrar = document.getElementById('btnFiltrar');
+            const btnContinuar = document.getElementById('btnContinuar');
+            
+            btnFiltrar.classList.replace('btn-danger', 'btn-success');
+            btnFiltrar.innerHTML = '<i class="fas fa-filter me-2"></i>Filtrar';
+            btnContinuar.style.display = 'none';
+            seleccionMultiple = false;
+            filasSeleccionadas = [];
+            
+            $('#registrosTable tbody tr').removeClass('selected');
+            $('#registrosTable tbody').off('click', 'tr');
+        }
+        
+        function continuarFiltrado() {
+            if (filasSeleccionadas.length > 0) {
+                // Guardar datos en sessionStorage
+                sessionStorage.setItem('datosFilttrados', JSON.stringify(filasSeleccionadas));
+                window.location.href = 'filtrado.html';
+            } else {
+                alert('Por favor, seleccione al menos un registro.');
+            }
+        }
+        
+        function recargarDatos() {
+            dataTable.ajax.reload(null, false);
+            // Resetear la selección múltiple al recargar
+            if (seleccionMultiple) {
+                cancelarFiltrado();
+            }
+        }
+        </script>
+</body>
+</html>

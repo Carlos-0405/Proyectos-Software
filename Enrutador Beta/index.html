@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            height: 100vh;
+            background-color: #343a40;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            display: block;
+        }
+        .sidebar a:hover {
+            background-color: #495057;
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .preview-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 sidebar">
+                <h3 class="text-white text-center mb-4">Sistema</h3>
+                <a href="dashboard.html" class="active"><i class="fas fa-home me-2"></i> Dashboard</a>
+                <a href="index.html"><i class="fas fa-upload me-2"></i> Introducción</a>
+                <a href="process.html"><i class="fas fa-chart-bar me-2"></i> Proceso</a>
+                <a href="filtrado.html"><i class="fas fa-cog me-2"></i> Filtrado</a>
+                <a href="rutas.html"><i class="fas fa-map-marked-alt me-2"></i> Rutas</a>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 main-content">
+                <h2 class="mb-4">Introducción de Datos</h2>
+
+                <!-- File Upload Section -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        Cargar Archivo
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="fileUpload" class="form-label">Seleccione archivo Excel o SQL</label>
+                            <input type="file" class="form-control" id="fileUpload" accept=".xlsx,.xls,.csv,.sql">
+                        </div>
+                        <button class="btn btn-primary" onclick="handleFileUpload()">
+                            <i class="fas fa-upload me-2"></i>Cargar Archivo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Previsualización de Datos</span>
+                        <button class="btn btn-success" onclick="insertToDatabase()" id="insertBtn" disabled>
+                            <i class="fas fa-database me-2"></i>Insertar en Base de Datos
+                        </button>
+                    </div>
+                    
+                    <div class="card-body preview-table">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Asesor</th>
+                                    <th>Nombre Usuario</th>
+                                    <th>Dirección</th>
+                                    <th>Barrio/Localidad</th>
+                                    <th>Teléfono</th>
+                                    <th>Fecha Registro</th>
+                                    <th>Zona</th>
+                                    <th>Plan Internet</th>
+                                    <th>IP</th>
+                                    <th>Comentarios</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script>
+        let fileData = null;
+
+        function handleFileUpload() {
+            const fileInput = document.getElementById('fileUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor seleccione un archivo');
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    fileData = XLSX.utils.sheet_to_json(firstSheet);
+                    displayPreview(fileData);
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (file.name.endsWith('.csv')) {
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    const data = parseCSV(text);
+                    fileData = data;
+                    displayPreview(data);
+                };
+                reader.readAsText(file);
+            } else if (file.name.endsWith('.sql')) {
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    const data = parseSQL(text);
+                    fileData = data;
+                    displayPreview(data);
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function parseCSV(text) {
+            // Implementación básica de parsing CSV
+            const lines = text.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const values = lines[i].split(',').map(v => v.trim());
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index];
+                });
+                data.push(row);
+            }
+            return data;
+        }
+
+        function parseSQL(text) {
+            // Implementación básica de parsing SQL INSERT statements
+            const data = [];
+            const regex = /INSERT\s+INTO\s+\w+\s+\((.*?)\)\s+VALUES\s+\((.*?)\)/g;
+            let match;
+
+            while ((match = regex.exec(text)) !== null) {
+                const columns = match[1].split(',').map(c => c.trim());
+                const values = match[2].split(',').map(v => v.trim().replace(/'/g, ''));
+                
+                const row = {};
+                columns.forEach((col, index) => {
+                    row[col] = values[index];
+                });
+                data.push(row);
+            }
+            return data;
+        }
+
+        function displayPreview(data) {
+    const tableBody = document.getElementById('previewTableBody');
+    tableBody.innerHTML = '';
+
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.ID || ''}</td>
+            <td>${row.Asesor || ''}</td>
+            <td>${row['Numero/nombre usuario'] || ''}</td>
+            <td>${row['Dirección'] || ''}</td>
+            <td>${row['Barrio/Localidad'] || ''}</td>
+            <td>${row.Telefono || ''}</td>
+            <td>${row['Fecha Registro'] || ''}</td>
+            <td>${row.Zona || ''}</td>
+            <td>${row['Plan Internet'] || ''}</td>
+            <td>${row.IP || ''}</td>
+            <td>${row.Comentarios || ''}</td>
+        `;
+        tableBody.appendChild(tr);
+    });
+
+    document.getElementById('insertBtn').disabled = false;
+}
+
+
+        function insertToDatabase() {
+            if (!fileData) {
+                alert('No hay datos para insertar');
+                return;
+            }
+
+            // Aquí iría la lógica para insertar en la base de datos
+            // Por ejemplo, usando fetch para enviar los datos a un backend
+            console.log('Datos a insertar:', fileData);
+            alert('Los datos se insertarían en la base de datos aquí.\nPara implementar esta función, necesitarás configurar un backend que procese esta información.');
+        }
+    </script>
+    <script>
+        function insertToDatabase() {
+    if (!fileData) {
+        alert('No hay datos para insertar');
+        return;
+    }
+
+    const confirmation = confirm('¿Continuar con el proceso?');
+    if (confirmation) {
+        // Redirigir a la página process.html después de confirmar
+        window.location.href = 'process.html';
+    }
+    }
+
+    </script>
+    <script>
+        function insertToDatabase() {
+    if (!fileData) {
+        alert('No hay datos para insertar');
+        return;
+    }
+
+    const confirmation = confirm('¿Continuar con el proceso?');
+    if (!confirmation) {
+        return;
+    }
+
+    // Enviar datos al PHP
+    fetch('insert_handler.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fileData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        alert('Datos insertados correctamente');
+        // Redirigir a la página de proceso
+        window.location.href = 'process.html';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al insertar los datos');
+    });
+}
+    </script>
+</body>
+</html>

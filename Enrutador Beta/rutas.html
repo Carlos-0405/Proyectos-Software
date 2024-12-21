@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rutas de Instalación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .main-content { padding: 20px; }
+        .ruta-card { margin-bottom: 20px; }
+        .coordinates { color: #0066cc; }
+        .distancia { color: #28a745; font-weight: bold; }
+        .instalacion-item {
+            border-left: 3px solid #007bff;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .numero-orden {
+            width: 24px;
+            height: 24px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Rutas de Instalación</h2>
+                <div>
+                    <button class="btn btn-success me-2" onclick="abrirTodasLasRutas()">
+                        <i class="fas fa-map-marked-alt me-2"></i>Abrir Todas las Rutas
+                    </button>
+                    <a href="javascript:history.back()" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </a>
+                </div>
+            </div>
+
+            <div id="rutasContainer">
+                <!-- Las rutas se generarán dinámicamente aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        function calcularDistancia(coord1, coord2) {
+            const [lat1, lon1] = coord1.split(',').map(Number);
+            const [lat2, lon2] = coord2.split(',').map(Number);
+            
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (R * c).toFixed(2);
+        }
+
+        function generarEnlaceGoogleMaps(instalaciones) {
+            const coordenadas = instalaciones
+                .filter(i => i.coordenadas)
+                .map(i => i.coordenadas.trim())
+                .join('/');
+            
+            return coordenadas ? `https://www.google.com/maps/dir/${coordenadas}` : null;
+        }
+
+        function abrirRuta(url) {
+            if (url) {
+                window.open(url, '_blank');
+            } else {
+                alert('No hay coordenadas disponibles para generar la ruta');
+            }
+        }
+
+        function abrirTodasLasRutas() {
+            const distribucion = JSON.parse(sessionStorage.getItem('distribucionRutas') || '[]');
+            distribucion.forEach(ruta => {
+                const url = generarEnlaceGoogleMaps(ruta.instalaciones);
+                if (url) {
+                    window.open(url, '_blank');
+                }
+            });
+        }
+        function mostrarRutas() {
+        const distribucion = JSON.parse(sessionStorage.getItem('distribucionRutas') || '[]');
+        const container = document.getElementById('rutasContainer');
+        
+        distribucion.forEach(ruta => {
+            const urlGoogleMaps = generarEnlaceGoogleMaps(ruta.instalaciones);
+            
+            let distanciaTotal = 0;
+            for (let i = 0; i < ruta.instalaciones.length - 1; i++) {
+                if (ruta.instalaciones[i].coordenadas && ruta.instalaciones[i + 1].coordenadas) {
+                    distanciaTotal += parseFloat(calcularDistancia(
+                        ruta.instalaciones[i].coordenadas,
+                        ruta.instalaciones[i + 1].coordenadas
+                    ));
+                }
+            }
+
+            const cardHtml = `
+                <div class="card ruta-card">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Instalador ${ruta.instaladorId}</h5>
+                        <div>
+                            <span class="badge bg-light text-dark me-2">
+                                ${ruta.instalaciones.length} instalaciones
+                            </span>
+                            ${distanciaTotal > 0 ? 
+                                `<span class="badge bg-success">
+                                    Distancia total: ${distanciaTotal.toFixed(2)} km
+                                </span>` : ''
+                            }
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${urlGoogleMaps ? `
+                            <button class="btn btn-outline-primary mb-3" onclick="abrirRuta('${urlGoogleMaps}')">
+                                <i class="fas fa-map-marked-alt me-2"></i>Ver ruta en Google Maps
+                            </button>
+                        ` : ''}
+                        
+                        <div class="instalaciones-list">
+                            ${ruta.instalaciones.map((inst, index) => `
+                                <div class="instalacion-item">
+                                    <span class="numero-orden">${index + 1}</span>
+                                    <strong>ID:</strong> ${inst.id}<br>
+                                    <strong>Zona:</strong> ${inst.zona}<br>
+                                    <strong>Dirección:</strong> ${inst.direccion}<br>
+                                    ${inst.coordenadas ? `
+                                        <span class="coordinates">
+                                            <i class="fas fa-map-marker-alt me-1"></i>
+                                            ${inst.coordenadas}
+                                        </span>
+                                    ` : '<span class="text-muted">Sin coordenadas disponibles</span>'}
+                                    ${index < ruta.instalaciones.length - 1 && inst.coordenadas && ruta.instalaciones[index + 1].coordenadas ? `
+                                        <div class="distancia mt-1">
+                                            <i class="fas fa-arrow-down me-1"></i>
+                                            Distancia al siguiente punto: 
+                                            ${calcularDistancia(inst.coordenadas, ruta.instalaciones[index + 1].coordenadas)} km
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML += cardHtml;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        mostrarRutas();
+    });
+</script>
+</body>
+</html>

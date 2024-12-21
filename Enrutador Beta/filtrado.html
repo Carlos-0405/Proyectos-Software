@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registros Filtrados</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        .main-content { padding: 20px; }
+        .coordinates { color: #0066cc; font-weight: bold; }
+        .cursor-pointer { cursor: pointer; }
+        tr.selected { background-color: #b8d4ff !important; }
+        #instaladoresModal .form-check { margin: 10px 0; }
+        
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-10 main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Registros Filtrados</h2>
+                    <div>
+                        <button class="btn btn-success me-2" onclick="mostrarModalInstaladores()">
+                            <i class="fas fa-route me-2"></i>Enrutar
+                        </button>
+                        <a href="process.html" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <table id="tablaFiltrada" class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Zona</th>
+                                    <th>Dirección</th>
+                                    <th>Coordenadas</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Selección de Instaladores -->
+    <div class="modal fade" id="instaladoresModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Seleccionar Instaladores</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="instaladoresList">
+                        <!-- Checkboxes de instaladores se generan dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="distribuirInstalaciones()">Distribuir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        let tabla;
+        let datosFiltrados = [];
+
+        function extraerCoordenadas(texto) {
+            const regex = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
+            const coincidencia = texto.match(regex);
+            return coincidencia ? `${coincidencia[1]}, ${coincidencia[2]}` : null;
+        }
+
+        function calcularDistancia(coord1, coord2) {
+            const [lat1, lon1] = coord1.split(',').map(Number);
+            const [lat2, lon2] = coord2.split(',').map(Number);
+            
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function mostrarModalInstaladores() {
+            let html = '';
+            for (let i = 1; i <= 8; i++) {
+                html += `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${i}" id="instalador${i}">
+                        <label class="form-check-label" for="instalador${i}">Instalador ${i}</label>
+                    </div>`;
+            }
+            document.getElementById('instaladoresList').innerHTML = html;
+            
+            const modal = new bootstrap.Modal(document.getElementById('instaladoresModal'));
+            modal.show();
+        }
+
+        function ordenarPorProximidad(instalaciones) {
+            const conCoordenadas = instalaciones.filter(i => i.coordenadas);
+            const sinCoordenadas = instalaciones.filter(i => !i.coordenadas);
+            
+            if (conCoordenadas.length === 0) return instalaciones;
+
+            const ordenadas = [conCoordenadas[0]];
+            const pendientes = conCoordenadas.slice(1);
+
+            while (pendientes.length > 0) {
+                const ultima = ordenadas[ordenadas.length - 1];
+                let masProximo = null;
+                let distanciaMinima = Infinity;
+                let indiceProximo = -1;
+
+                pendientes.forEach((instalacion, index) => {
+                    const distancia = calcularDistancia(ultima.coordenadas, instalacion.coordenadas);
+                    if (distancia < distanciaMinima) {
+                        distanciaMinima = distancia;
+                        masProximo = instalacion;
+                        indiceProximo = index;
+                    }
+                });
+
+                ordenadas.push(masProximo);
+                pendientes.splice(indiceProximo, 1);
+            }
+
+            return [...ordenadas, ...sinCoordenadas];
+        }
+
+        function distribuirInstalaciones() {
+            const instaladoresSeleccionados = Array.from(document.querySelectorAll('#instaladoresList input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            if (instaladoresSeleccionados.length === 0) {
+                alert('Debe seleccionar al menos un instalador');
+                return;
+            }
+
+            let instalaciones = datosFiltrados.map(item => ({
+                ...item,
+                coordenadas: extraerCoordenadas(item.comentarios)
+            }));
+
+            if (instalaciones.some(inst => inst.coordenadas)) {
+                instalaciones = ordenarPorProximidad(instalaciones);
+            }
+
+            const cantidadPorInstalador = Math.ceil(instalaciones.length / instaladoresSeleccionados.length);
+            
+            const distribucion = instaladoresSeleccionados.map(instaladorId => ({
+                instaladorId,
+                instalaciones: []
+            }));
+
+            instalaciones.forEach((instalacion, index) => {
+                const instaladorIndex = Math.floor(index / cantidadPorInstalador);
+                if (instaladorIndex < distribucion.length) {
+                    distribucion[instaladorIndex].instalaciones.push(instalacion);
+                }
+            });
+
+            // Guardar la distribución en sessionStorage
+            sessionStorage.setItem('distribucionRutas', JSON.stringify(distribucion));
+            
+            // Redirigir a la página de rutas
+            window.location.href = 'rutas.html';
+        }
+
+        $(document).ready(function() {
+            datosFiltrados = JSON.parse(sessionStorage.getItem('datosFilttrados') || '[]');
+            tabla = $('#tablaFiltrada').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                },
+                pageLength: 25,
+                order: [[0, 'asc']],
+                data: datosFiltrados.map(item => [
+                    item.id,
+                    item.zona,
+                    item.direccion,
+                    extraerCoordenadas(item.comentarios) || 'No disponible'
+                ]),
+                columns: [
+                    { title: 'ID' },
+                    { title: 'Zona' },
+                    { title: 'Dirección' },
+                    { 
+                        title: 'Coordenadas',
+                        render: function(data) {
+                            return `<span class="coordinates">${data}</span>`;
+                        }
+                    }
+                ]
+            });
+        });
+    </script>
+</body>
+</html>

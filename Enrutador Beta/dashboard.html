@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Dashboard</h1>
+        <nav>
+            <a href="dashboard.html" class="active"><i class="fas fa-home me-2"></i> Dashboard</a>
+            <a href="index.html"><i class="fas fa-upload me-2"></i> Introducción</a>
+            <a href="process.html"><i class="fas fa-chart-bar me-2"></i> Proceso</a>
+            <a href="#"><i class="fas fa-cog me-2"></i> Configuración</a>
+        </nav>
+    </header>
+    <main>
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Asesor</th>
+                    <th>Número/Nombre Usuario</th>
+                    <th>Dirección</th>
+                    <th>Barrio/Localidad</th>
+                    <th>Teléfono</th>
+                    <th>Fecha Registro</th>
+                    <th>Zona Plan Internet</th>
+                    <th>IP</th>
+                    <th>Comentarios</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí se llenarán los datos desde la base de datos -->
+            </tbody>
+        </table>
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>
